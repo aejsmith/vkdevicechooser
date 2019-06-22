@@ -1,0 +1,21 @@
+{
+    "file_format_version" : "1.0.0",
+    "layer" : {
+        "name": "VK_LAYER_AEJS_DeviceChooserLayer",
+        "type": "GLOBAL",
+        "library_path": "./libVkLayer_device_chooser.so",
+        "api_version": "1.0.111",
+        "implementation_version": "1",
+        "description": "Device chooser layer",
+        "functions": {
+            "vkGetInstanceProcAddr": "DeviceChooserLayer_GetInstanceProcAddr",
+            "vkGetDeviceProcAddr": "DeviceChooserLayer_GetDeviceProcAddr"
+        },
+        "enable_environment": {
+            "ENABLE_DEVICE_CHOOSER_LAYER": "1"
+        },
+        "disable_environment": {
+            "DISABLE_DEVICE_CHOOSER_LAYER": "1"
+        }
+    }
+}

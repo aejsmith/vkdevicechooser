@@ -13,6 +13,8 @@
 static std::map<void*, VkLayerInstanceDispatchTable> gInstanceDispatch;
 static std::map<void*, VkLayerDispatchTable> gDeviceDispatch;
 
+static constexpr char kEnvVariable[] = "VULKAN_DEVICE_INDEX";
+
 template <typename DispatchableType>
 inline void* GetKey(DispatchableType object)
 {
@@ -31,19 +33,11 @@ inline VkLayerDispatchTable& GetDeviceDispatch(DispatchableType object)
     return gDeviceDispatch[GetKey(object)];
 }
 
-VK_LAYER_EXPORT VkResult VKAPI_CALL
-DeviceChooserLayer_EnumeratePhysicalDevices(VkInstance        instance,
-                                            uint32_t*         pPhysicalDeviceCount,
-                                            VkPhysicalDevice* pPhysicalDevices)
+static VkResult ChooseDevice(VkInstance                          instance,
+                             const VkLayerInstanceDispatchTable& dispatch,
+                             const char* const                   env,
+                             VkPhysicalDevice&                   outDevice)
 {
-    const VkLayerInstanceDispatchTable& dispatch = GetInstanceDispatch(instance);
-
-    const char* const env = getenv("VULKAN_DEVICE_INDEX");
-    if (!env)
-    {
-        return dispatch.EnumeratePhysicalDevices(instance, pPhysicalDeviceCount, pPhysicalDevices);
-    }
-
     std::vector<VkPhysicalDevice> devices;
     uint32_t count = 0;
 
@@ -55,7 +49,7 @@ DeviceChooserLayer_EnumeratePhysicalDevices(VkInstance        instance,
     }
     else if (count == 0)
     {
-        *pPhysicalDeviceCount = 0;
+        outDevice = VK_NULL_HANDLE;
         return VK_SUCCESS;
     }
 
@@ -80,17 +74,94 @@ DeviceChooserLayer_EnumeratePhysicalDevices(VkInstance        instance,
         printf("Using Vulkan device index %d\n", deviceIndex);
     }
 
-    if (!pPhysicalDevices)
+    outDevice = devices[deviceIndex];
+    return VK_SUCCESS;
+}
+
+VK_LAYER_EXPORT VkResult VKAPI_CALL
+DeviceChooserLayer_EnumeratePhysicalDevices(VkInstance        instance,
+                                            uint32_t*         pPhysicalDeviceCount,
+                                            VkPhysicalDevice* pPhysicalDevices)
+{
+    const VkLayerInstanceDispatchTable& dispatch = GetInstanceDispatch(instance);
+
+    const char* const env = getenv(kEnvVariable);
+    if (!env)
+    {
+        return dispatch.EnumeratePhysicalDevices(instance, pPhysicalDeviceCount, pPhysicalDevices);
+    }
+
+    VkPhysicalDevice device;
+    VkResult result = ChooseDevice(instance, dispatch, env, device);
+
+    if (result != VK_SUCCESS)
+    {
+        return result;
+    }
+    else if (device == VK_NULL_HANDLE)
+    {
+        *pPhysicalDeviceCount = 0;
+    }
+    else if (!pPhysicalDevices)
     {
         *pPhysicalDeviceCount = 1;
     }
     else if (*pPhysicalDeviceCount > 0)
     {
-        *pPhysicalDevices     = devices[deviceIndex];
+        *pPhysicalDevices     = device;
         *pPhysicalDeviceCount = 1;
     }
 
     return VK_SUCCESS;
+}
+
+VK_LAYER_EXPORT VkResult VKAPI_CALL
+DeviceChooserLayer_EnumeratePhysicalDeviceGroupsKHR(VkInstance                          instance,
+                                                    uint32_t*                           pPhysicalDeviceGroupCount,
+                                                    VkPhysicalDeviceGroupPropertiesKHR* pPhysicalDeviceGroups)
+{
+    const VkLayerInstanceDispatchTable& dispatch = GetInstanceDispatch(instance);
+
+    const char* const env = getenv(kEnvVariable);
+    if (!env)
+    {
+        return dispatch.EnumeratePhysicalDeviceGroupsKHR(instance, pPhysicalDeviceGroupCount, pPhysicalDeviceGroups);
+    }
+
+    /* Just return a single device group containing the requested device. */
+    VkPhysicalDevice device;
+    VkResult result = ChooseDevice(instance, dispatch, env, device);
+
+    if (result != VK_SUCCESS)
+    {
+        return result;
+    }
+    else if (device == VK_NULL_HANDLE)
+    {
+        *pPhysicalDeviceGroupCount = 0;
+    }
+    else if (!pPhysicalDeviceGroups)
+    {
+        *pPhysicalDeviceGroupCount = 1;
+    }
+    else if (*pPhysicalDeviceGroupCount > 0)
+    {
+        *pPhysicalDeviceGroupCount = 1;
+
+        pPhysicalDeviceGroups[0].physicalDeviceCount = 1;
+        pPhysicalDeviceGroups[0].physicalDevices[0]  = device;
+        pPhysicalDeviceGroups[0].subsetAllocation    = VK_FALSE;
+    }
+
+    return VK_SUCCESS;
+}
+
+VK_LAYER_EXPORT VkResult VKAPI_CALL
+DeviceChooserLayer_EnumeratePhysicalDeviceGroups(VkInstance                       instance,
+                                                 uint32_t*                        pPhysicalDeviceGroupCount,
+                                                 VkPhysicalDeviceGroupProperties* pPhysicalDeviceGroups)
+{
+    return DeviceChooserLayer_EnumeratePhysicalDeviceGroupsKHR(instance, pPhysicalDeviceGroupCount, pPhysicalDeviceGroups);
 }
 
 VK_LAYER_EXPORT VkResult VKAPI_CALL
@@ -131,6 +202,8 @@ DeviceChooserLayer_CreateInstance(const VkInstanceCreateInfo*  pCreateInfo,
     GET(EnumerateDeviceExtensionProperties);
     GET(DestroyInstance);
     GET(EnumeratePhysicalDevices);
+    GET(EnumeratePhysicalDeviceGroups);
+    GET(EnumeratePhysicalDeviceGroupsKHR);
 
     #undef GET
 
@@ -306,6 +379,8 @@ DeviceChooserLayer_GetInstanceProcAddr(VkInstance  instance,
     GETPROCADDR(CreateInstance);
     GETPROCADDR(DestroyInstance);
     GETPROCADDR(EnumeratePhysicalDevices);
+    GETPROCADDR(EnumeratePhysicalDeviceGroups);
+    GETPROCADDR(EnumeratePhysicalDeviceGroupsKHR);
 
     GETPROCADDR(GetDeviceProcAddr);
     GETPROCADDR(EnumerateDeviceLayerProperties);

@@ -3,6 +3,7 @@
 #include "vulkan/vk_layer_dispatch_table.h"
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <map>
 #include <vector>

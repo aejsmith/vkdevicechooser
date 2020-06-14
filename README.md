@@ -3,9 +3,13 @@
 This is a quick and dirty implementation of a Vulkan layer to force a specific physical device to be used. This is useful for Vulkan games which do not provide an option to choose the device themselves.
 
 Compiling requires `vulkan/vulkan.h`, `vulkan/vk_layer.h` and `vulkan/vk_layer_dispatch_table.h`.
-On Debian based system, you can install these with:
+On Debian based systems, you can install these with:
 ```bash
 sudo apt-get install libvulkan-dev vulkan-validationlayers-dev
+```
+On Fedora, you can install these with:
+```bash
+sudo dnf install vulkan-headers vulkan-validation-layers-devel
 ```
 
 Build and install with:

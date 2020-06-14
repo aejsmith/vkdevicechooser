@@ -2,12 +2,20 @@
 
 This is a quick and dirty implementation of a Vulkan layer to force a specific physical device to be used. This is useful for Vulkan games which do not provide an option to choose the device themselves.
 
-Build and install with:
+Compiling requires `vulkan/vulkan.h`, `vulkan/vk_layer.h` and `vulkan/vk_layer_dispatch_table.h`.
+On Debian based system, you can install these with:
 ```bash
-$ make install
+sudo apt-get install libvulkan-dev vulkan-validationlayers-dev
 ```
 
-This will install to the current user's Vulkan layer directory, `~/.local/share/vulkan/implicit_layer.d/`.
+Build and install with:
+```bash
+meson builddir --prefix=/usr
+meson compile -C builddir
+sudo meson install -C builddir
+```
+
+This will install to the system's Vulkan layer directory, `/usr/share/vulkan/implicit_layer.d/`.
 
 To run a Vulkan application forcing a specific device to be used, launch it with these environment variables:
 ```
